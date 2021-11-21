@@ -7,71 +7,31 @@ import (
 	"os"
 )
 
-type GameState struct {
-	Game  Game        `json:"game"`
-	Turn  int         `json:"turn"`
-	Board Board       `json:"board"`
-	You   Battlesnake `json:"you"`
-}
-
 type Game struct {
-	ID      string  `json:"id"`
-	Ruleset Ruleset `json:"ruleset"`
-	Timeout int32   `json:"timeout"`
+	ID      string  `json:"game_id"`
+	Width int `json:"width"`
+	Height int   `json:"height"`
 }
 
-type Ruleset struct {
-	Name     string   `json:"name"`
-	Version  string   `json:"version"`
-	Settings Settings `json:"settings"`
+type GameState struct {
+	You    string `json:"you"`
+	Width  int    `json:"width"`
+	Turn   int    `json:"turn"`
+	Snakes []Snake `json:"snakes"`
+	Height     int     `json:"height"`
+	GameID     string  `json:"game_id"`
+	Food       [][]int `json:"food"`
+	DeadSnakes []Snake `json:"dead_snakes"`
 }
 
-type Settings struct {
-	FoodSpawnChance     int32  `json:"foodSpawnChance"`
-	MinimumFood         int32  `json:"minimumFood"`
-	HazardDamagePerTurn int32  `json:"hazardDamagePerTurn"`
-	Royale              Royale `json:"royale"`
-	Squad               Squad  `json:"squad"`
-}
+type Coord []int
 
-type Royale struct {
-	ShrinkEveryNTurns int32 `json:"shrinkEveryNTurns"`
-}
-
-type Squad struct {
-	AllowBodyCollisions bool `json:"allowBodyCollisions"`
-	SharedElimination   bool `json:"sharedElimination"`
-	SharedHealth        bool `json:"sharedHealth"`
-	SharedLength        bool `json:"sharedLength"`
-}
-
-type Board struct {
-	Height int           `json:"height"`
-	Width  int           `json:"width"`
-	Food   []Coord       `json:"food"`
-	Snakes []Battlesnake `json:"snakes"`
-
-	// Used in non-standard game modes
-	Hazards []Coord `json:"hazards"`
-}
-
-type Battlesnake struct {
-	ID      string  `json:"id"`
-	Name    string  `json:"name"`
-	Health  int32   `json:"health"`
-	Body    []Coord `json:"body"`
-	Head    Coord   `json:"head"`
-	Length  int32   `json:"length"`
-	Latency string  `json:"latency"`
-
-	// Used in non-standard game modes
-	Shout string `json:"shout"`
-	Squad string `json:"squad"`
-}
-
-type Coord struct {
-	X int `json:"x"`
-	Y int `json:"y"`
+type Snake struct {
+	Taunt        string  `json:"taunt"`
+	Name         string  `json:"name"`
+	ID           string  `json:"id"`
+	HealthPoints int     `json:"health_points"`
+	Coords       []Coord `json:"coords"`
 }
 
 // Response Structs
@@ -102,7 +62,7 @@ func HandleIndex(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleStart(w http.ResponseWriter, r *http.Request) {
-	state := GameState{}
+	state := Game{}
 	err := json.NewDecoder(r.Body).Decode(&state)
 	if err != nil {
 		log.Printf("ERROR: Failed to decode start json, %s", err)
@@ -111,7 +71,13 @@ func HandleStart(w http.ResponseWriter, r *http.Request) {
 
 	start(state)
 
-	// Nothing to respond with here
+	response := info()
+
+	w.Header().Set("Content-Type", "application/json")
+	err = json.NewEncoder(w).Encode(response)
+	if err != nil {
+		log.Printf("ERROR: Failed to encode info response, %s", err)
+	}
 }
 
 func HandleMove(w http.ResponseWriter, r *http.Request) {
@@ -133,7 +99,7 @@ func HandleMove(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleEnd(w http.ResponseWriter, r *http.Request) {
-	state := GameState{}
+	state := Game{}
 	err := json.NewDecoder(r.Body).Decode(&state)
 	if err != nil {
 		log.Printf("ERROR: Failed to decode end json, %s", err)
